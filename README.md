@@ -1,4 +1,4 @@
-#Network Port Scanner
+Network Port Scanner
  Network Port Scanner :
 
 A simple Python tool I built to scan a target host for open TCP ports, figure out what services are likely running on them, and flag anything that looks risky from a security standpoint.
