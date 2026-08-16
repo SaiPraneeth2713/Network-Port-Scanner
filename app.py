@@ -1,4 +1,3 @@
-```python
 from flask import Flask, jsonify, request
 
 from utils import resolve_target, parse_port_range, format_duration
@@ -310,4 +309,3 @@ if __name__ == "__main__":
         port=5000,
         debug=False
     )
-```
