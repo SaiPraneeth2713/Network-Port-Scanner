@@ -1,0 +1,101 @@
+#Network Port Scanner Network Port Scanner :
+
+A simple Python tool I built to scan a target host for open TCP ports, figure out what services are likely running on them, and flag anything that looks risky from a security standpoint.
+
+I made this mainly as a way to get hands-on with socket programming and basic network security concepts — it's not meant to compete with tools like Nmap, just to understand how port scanning actually works under the hood.
+
+What it does :
+
+Scans TCP ports on any host you point it at
+Tells you which ports are open and which are closed
+Makes a reasonable guess at what service is running on each open port
+Rates each finding as Low, Medium, or High risk
+Rolls everything up into an overall risk level for the target
+Spits out a clean scan report at the end
+Runs fast thanks to threading
+Built with :
+
+Python 3.x
+Sockets, for the actual scanning
+Threading, to speed things up
+Basic IP validation and hostname resolution
+Project layout :
+
+Network-Port-Scanner/
+│── scanner.py
+│── risk_assessment.py
+│── utils.py
+│── requirements.txt
+│── README.md
+└── reports/
+
+ Getting it running :
+
+Grab the code:
+bash
+git clone https://github.com/your-username/network-port-scanner.git
+cd network-port-scanner
+
+
+Install whatever it needs:
+In bash :
+pip install -r requirements.txt
+
+
+Running a scan :
+
+In bash
+python scanner.py
+
+
+It will ask you for a target — just type in an IP or a hostname :
+
+Target: scanme.nmap.org
+
+
+Output :
+
+
+=========================================
+Network Port Scanner
+=========================================
+Target: scanme.nmap.org
+Open Ports
+22    SSH               LOW
+80    HTTP              MEDIUM
+443   HTTPS             LOW
+445   SMB               HIGH
+Highest Overall Risk: HIGH
+Scan Completed Successfully
+How the risk levels work in the project :
+
+Risk Level	What it means
+Low	A common service, nothing unusual about it being open
+Medium	Worth a second look — make sure it's configured properly
+High	A sensitive or historically-abused service; probably deserves attention
+Worth being clear about: a "High" rating just means the service could be a soft spot, not that anything has actually been broken into. It's a flag to investigate, not a verdict.
+
+Step by step procedure :
+
+Take in a target (IP or hostname)
+Resolve the hostname to an IP if needed
+Go through the chosen port list one by one (in parallel, via threads)
+Note which ones respond as open
+Match each open port against a list of known services
+Assign a risk level based on that match
+Work out and display the single highest risk found across all open ports
+Ports it knows about out of the box :
+
+Port	Service	Default Risk
+21	FTP	Medium
+22	SSH	Low
+23	Telnet	High
+25	SMTP	Medium
+53	DNS	Low
+80	HTTP	Medium
+110	POP3	Medium
+143	IMAP	Medium
+443	HTTPS	Low
+445	SMB	High
+3306	MySQL	High
+3389	RDP	High

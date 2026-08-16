@@ -1,0 +1,424 @@
+/* =========================================================
+   NETWORK PORT SCANNER
+   MODERN DARK CYBERSECURITY UI
+   ========================================================= */
+
+/* =========================
+   GLOBAL RESET
+   ========================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #050505;
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 30px 15px;
+}
+
+
+/* =========================
+   MAIN CONTAINER
+   ========================= */
+
+.container {
+    width: 100%;
+    max-width: 850px;
+}
+
+
+/* =========================
+   HEADER
+   ========================= */
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+.header h1 span {
+    color: #ff3b3b;
+}
+
+.header p {
+    color: #a0a0a0;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+
+/* =========================
+   SCANNER CARD
+   ========================= */
+
+.scanner-card {
+    background: #101010;
+    border: 1px solid #252525;
+    border-radius: 16px;
+    padding: 35px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+
+/* =========================
+   CARD TITLE
+   ========================= */
+
+.scanner-card h2 {
+    font-size: 24px;
+    margin-bottom: 25px;
+}
+
+.scanner-card h2::before {
+    content: "> ";
+    color: #ff3b3b;
+}
+
+
+/* =========================
+   FORM
+   ========================= */
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #d8d8d8;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+
+/* =========================
+   INPUTS
+   ========================= */
+
+.form-group input {
+    width: 100%;
+    padding: 14px 15px;
+    background: #080808;
+    border: 1px solid #303030;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 15px;
+    outline: none;
+    transition: 0.3s ease;
+}
+
+.form-group input::placeholder {
+    color: #666666;
+}
+
+.form-group input:focus {
+    border-color: #ff3b3b;
+    box-shadow: 0 0 0 3px rgba(255, 59, 59, 0.1);
+}
+
+
+/* =========================
+   PORT INPUT ROW
+   ========================= */
+
+.port-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+
+/* =========================
+   SCAN BUTTON
+   ========================= */
+
+.scan-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    background: #ff3b3b;
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+.scan-btn:hover {
+    background: #ff5555;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 59, 59, 0.25);
+}
+
+.scan-btn:active {
+    transform: translateY(0);
+}
+
+
+/* =========================
+   RESULTS SECTION
+   ========================= */
+
+.results {
+    margin-top: 30px;
+}
+
+.results h2 {
+    font-size: 22px;
+    margin-bottom: 15px;
+}
+
+.results h2::before {
+    content: "# ";
+    color: #ff3b3b;
+}
+
+
+/* =========================
+   RESULTS TABLE
+   ========================= */
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #080808;
+}
+
+.results-table th,
+.results-table td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid #252525;
+}
+
+.results-table th {
+    background: #171717;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.results-table td {
+    color: #cccccc;
+    font-size: 14px;
+}
+
+.results-table tr:last-child td {
+    border-bottom: none;
+}
+
+.results-table tr:hover td {
+    background: #141414;
+}
+
+
+/* =========================
+   OPEN PORT
+   ========================= */
+
+.open {
+    color: #35d07f !important;
+    font-weight: 700;
+}
+
+
+/* =========================
+   CLOSED PORT
+   ========================= */
+
+.closed {
+    color: #ff5555 !important;
+    font-weight: 600;
+}
+
+
+/* =========================
+   STATUS BADGE
+   ========================= */
+
+.status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status-open {
+    color: #35d07f;
+    background: rgba(53, 208, 127, 0.1);
+    border: 1px solid rgba(53, 208, 127, 0.25);
+}
+
+.status-closed {
+    color: #ff5555;
+    background: rgba(255, 85, 85, 0.1);
+    border: 1px solid rgba(255, 85, 85, 0.25);
+}
+
+
+/* =========================
+   EMPTY RESULTS
+   ========================= */
+
+.no-results {
+    text-align: center;
+    padding: 25px;
+    color: #888888;
+    background: #080808;
+    border: 1px solid #222222;
+    border-radius: 8px;
+}
+
+
+/* =========================
+   WARNING / ERROR
+   ========================= */
+
+.error {
+    margin-top: 20px;
+    padding: 14px;
+    border-radius: 8px;
+    background: rgba(255, 59, 59, 0.08);
+    border: 1px solid rgba(255, 59, 59, 0.25);
+    color: #ff7777;
+}
+
+
+/* =========================
+   INFO BOX
+   ========================= */
+
+.info-box {
+    margin-top: 25px;
+    padding: 15px;
+    background: #0b0b0b;
+    border-left: 3px solid #ff3b3b;
+    color: #999999;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+
+/* =========================
+   FOOTER
+   ========================= */
+
+.footer {
+    text-align: center;
+    margin-top: 25px;
+    color: #666666;
+    font-size: 13px;
+}
+
+.footer span {
+    color: #ff3b3b;
+}
+
+
+/* =========================
+   TERMINAL EFFECT
+   ========================= */
+
+.terminal {
+    background: #050505;
+    border: 1px solid #252525;
+    border-radius: 8px;
+    padding: 18px;
+    margin-bottom: 25px;
+    font-family: Consolas, "Courier New", monospace;
+    color: #35d07f;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.terminal .command {
+    color: #ffffff;
+}
+
+.terminal .prompt {
+    color: #ff3b3b;
+}
+
+
+/* =========================
+   RESPONSIVE DESIGN
+   ========================= */
+
+@media (max-width: 700px) {
+
+    body {
+        padding: 20px 12px;
+    }
+
+    .header h1 {
+        font-size: 32px;
+    }
+
+    .header p {
+        font-size: 14px;
+    }
+
+    .scanner-card {
+        padding: 22px;
+    }
+
+    .port-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .results-table th,
+    .results-table td {
+        padding: 11px;
+        font-size: 13px;
+    }
+}
+
+
+/* =========================
+   SMALL MOBILE DEVICES
+   ========================= */
+
+@media (max-width: 450px) {
+
+    .header h1 {
+        font-size: 27px;
+    }
+
+    .scanner-card {
+        padding: 18px;
+    }
+
+    .scanner-card h2 {
+        font-size: 20px;
+    }
+
+    .scan-btn {
+        padding: 13px;
+        font-size: 15px;
+    }
+}

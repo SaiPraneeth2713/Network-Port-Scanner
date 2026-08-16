@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Network Port Scanner</title>
+
+    <!-- CSS -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+    <div class="container">
+
+        <!-- ================= HEADER ================= -->
+
+        <header class="header">
+
+            <h1>
+                Network <span>Port Scanner</span>
+            </h1>
+
+            <p>
+                Scan a host for open TCP ports using a simple
+                and user-friendly interface.
+            </p>
+
+        </header>
+
+
+        <!-- ================= SCANNER CARD ================= -->
+
+        <div class="scanner-card">
+
+            <h2>
+                Start a Scan
+            </h2>
+
+
+            <!-- ================= TERMINAL ================= -->
+
+            <div class="terminal">
+
+                <div>
+                    <span class="prompt">$</span>
+                    <span class="command">
+                        network-port-scanner --scan
+                    </span>
+                </div>
+
+                <div>
+                    Ready to scan...
+                </div>
+
+            </div>
+
+
+            <!-- ================= SCAN FORM ================= -->
+
+            <form method="POST" action="/">
+
+                <!-- Target Host -->
+
+                <div class="form-group">
+
+                    <label for="host">
+                        Target Host
+                    </label>
+
+                    <input
+                        type="text"
+                        id="host"
+                        name="host"
+                        placeholder="example.com or 127.0.0.1"
+                        value="{{ request.form.get('host', '') }}"
+                        required
+                    >
+
+                </div>
+
+
+                <!-- Port Range -->
+
+                <div class="port-row">
+
+                    <!-- Start Port -->
+
+                    <div class="form-group">
+
+                        <label for="start_port">
+                            Start Port
+                        </label>
+
+                        <input
+                            type="number"
+                            id="start_port"
+                            name="start_port"
+                            min="1"
+                            max="65535"
+                            value="{{ request.form.get('start_port', '1') }}"
+                            required
+                        >
+
+                    </div>
+
+
+                    <!-- End Port -->
+
+                    <div class="form-group">
+
+                        <label for="end_port">
+                            End Port
+                        </label>
+
+                        <input
+                            type="number"
+                            id="end_port"
+                            name="end_port"
+                            min="1"
+                            max="65535"
+                            value="{{ request.form.get('end_port', '100') }}"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <!-- Scan Button -->
+
+                <button
+                    type="submit"
+                    class="scan-btn"
+                >
+                    🔍 Scan Ports
+                </button>
+
+            </form>
+
+
+            <!-- ================= RESULTS ================= -->
+
+            {% if results %}
+
+            <div class="results">
+
+                <h2>
+                    Scan Results
+                </h2>
+
+
+                <table class="results-table">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Port
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for result in results %}
+
+                        <tr>
+
+                            <td>
+                                {{ result.port }}
+                            </td>
+
+                            <td>
+
+                                {% if result.status == "OPEN" %}
+
+                                <span class="status status-open">
+                                    OPEN
+                                </span>
+
+                                {% elif result.status == "CLOSED" %}
+
+                                <span class="status status-closed">
+                                    CLOSED
+                                </span>
+
+                                {% else %}
+
+                                <span>
+                                    {{ result.status }}
+                                </span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            {% endif %}
+
+
+            <!-- ================= ERROR MESSAGE ================= -->
+
+            {% if error %}
+
+            <div class="error">
+
+                {{ error }}
+
+            </div>
+
+            {% endif %}
+
+
+            <!-- ================= INFORMATION ================= -->
+
+            <div class="info-box">
+
+                <strong>⚠️ Responsible Use:</strong>
+
+                Only scan systems and networks that you own
+                or have explicit permission to test.
+                Unauthorized port scanning may violate
+                organizational policies or applicable laws.
+
+            </div>
+
+        </div>
+
+
+        <!-- ================= FOOTER ================= -->
+
+        <footer class="footer">
+
+            <p>
+                Network Port Scanner |
+                Built with <span>Python + Flask</span>
+            </p>
+
+        </footer>
+
+    </div>
+
+</body>
+
+</html>
