@@ -7,7 +7,6 @@
 
     <title>Network Port Scanner</title>
 
-    <!-- CSS -->
     <link
         rel="stylesheet"
         href="{{ url_for('static', filename='style.css') }}"
@@ -16,145 +15,270 @@
 
 <body>
 
-    <div class="container">
+<div class="container">
 
-        <!-- ================= HEADER ================= -->
+    
 
-        <header class="header">
+    <header class="header">
 
-            <h1>
-                Network <span>Port Scanner</span>
-            </h1>
+        <h1>
+            Network <span>Port Scanner</span>
+        </h1>
 
-            <p>
-                Scan a host for open TCP ports using a simple
-                and user-friendly interface.
-            </p>
+        <p>
+            Scan a host for open TCP ports using a simple
+            and user-friendly interface.
+        </p>
 
-        </header>
-
-
-        <!-- ================= SCANNER CARD ================= -->
-
-        <div class="scanner-card">
-
-            <h2>
-                Start a Scan
-            </h2>
+    </header>
 
 
-            <!-- ================= TERMINAL ================= -->
 
-            <div class="terminal">
+    <div class="scanner-card">
 
-                <div>
-                    <span class="prompt">$</span>
-                    <span class="command">
-                        network-port-scanner --scan
-                    </span>
-                </div>
+        <h2>
+            &gt; Start a Scan
+        </h2>
 
-                <div>
+
+        
+
+        <div class="terminal">
+
+            <div>
+                <span class="prompt">$</span>
+                <span class="command">
+                    network-port-scanner --scan
+                </span>
+            </div>
+
+            <div class="terminal-status">
+                {% if summary %}
+                    Scan completed.
+                {% elif error %}
+                    Scan failed.
+                {% else %}
                     Ready to scan...
-                </div>
+                {% endif %}
+            </div>
+
+        </div>
+
+
+        
+        <form method="POST" action="/">
+
+           
+
+            <div class="form-group">
+
+                <label for="host">
+                    Target Host
+                </label>
+
+                <input
+                    type="text"
+                    id="host"
+                    name="host"
+                    placeholder="example.com or 127.0.0.1"
+                    value="{{ request.form.get('host', '') }}"
+                    required
+                >
 
             </div>
 
 
-            <!-- ================= SCAN FORM ================= -->
+            
 
-            <form method="POST" action="/">
+            <div class="port-row">
 
-                <!-- Target Host -->
+              
 
                 <div class="form-group">
 
-                    <label for="host">
-                        Target Host
+                    <label for="start_port">
+                        Start Port
                     </label>
 
                     <input
-                        type="text"
-                        id="host"
-                        name="host"
-                        placeholder="example.com or 127.0.0.1"
-                        value="{{ request.form.get('host', '') }}"
+                        type="number"
+                        id="start_port"
+                        name="start_port"
+                        min="1"
+                        max="65535"
+                        value="{{ request.form.get('start_port', '1') }}"
                         required
                     >
 
                 </div>
 
 
-                <!-- Port Range -->
+                
 
-                <div class="port-row">
+                <div class="form-group">
 
-                    <!-- Start Port -->
+                    <label for="end_port">
+                        End Port
+                    </label>
 
-                    <div class="form-group">
+                    <input
+                        type="number"
+                        id="end_port"
+                        name="end_port"
+                        min="1"
+                        max="65535"
+                        value="{{ request.form.get('end_port', '100') }}"
+                        required
+                    >
 
-                        <label for="start_port">
-                            Start Port
-                        </label>
+                </div>
 
-                        <input
-                            type="number"
-                            id="start_port"
-                            name="start_port"
-                            min="1"
-                            max="65535"
-                            value="{{ request.form.get('start_port', '1') }}"
-                            required
-                        >
-
-                    </div>
+            </div>
 
 
-                    <!-- End Port -->
+            
 
-                    <div class="form-group">
+            <button
+                type="submit"
+                class="scan-btn"
+            >
+                🔍 Scan Ports
+            </button>
 
-                        <label for="end_port">
-                            End Port
-                        </label>
+        </form>
 
-                        <input
-                            type="number"
-                            id="end_port"
-                            name="end_port"
-                            min="1"
-                            max="65535"
-                            value="{{ request.form.get('end_port', '100') }}"
-                            required
-                        >
 
-                    </div>
+
+        {% if error %}
+
+        <div class="error">
+
+            <strong>Scan Error:</strong>
+
+            {{ error }}
+
+        </div>
+
+        {% endif %}
+
+
+        
+
+        {% if summary %}
+
+        <div class="results">
+
+            <h2>
+             Scan Results
+            </h2>
+
+
+            
+
+            <div class="summary-grid">
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Target
+                    </span>
+
+                    <span class="summary-value">
+                        {{ summary.target }}
+                    </span>
 
                 </div>
 
 
-                <!-- Scan Button -->
+                <div class="summary-item">
 
-                <button
-                    type="submit"
-                    class="scan-btn"
-                >
-                    🔍 Scan Ports
-                </button>
+                    <span class="summary-label">
+                        IP Address
+                    </span>
 
-            </form>
+                    <span class="summary-value">
+                        {{ summary.ip }}
+                    </span>
+
+                </div>
 
 
-            <!-- ================= RESULTS ================= -->
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Hostname
+                    </span>
+
+                    <span class="summary-value">
+                        {{ summary.hostname }}
+                    </span>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Ports Scanned
+                    </span>
+
+                    <span class="summary-value">
+                        {{ summary.ports_scanned }}
+                    </span>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Open Ports
+                    </span>
+
+                    <span class="summary-value">
+                        {{ summary.open_ports|length }}
+                    </span>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Duration
+                    </span>
+
+                    <span class="summary-value">
+                        {{ summary.duration }}
+                    </span>
+
+                </div>
+
+
+                <div class="summary-item">
+
+                    <span class="summary-label">
+                        Highest Risk
+                    </span>
+
+                    <span class="summary-value">
+                        {{ summary.highest_risk }}
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            
 
             {% if results %}
 
-            <div class="results">
+            <h3>
+                Open Ports
+            </h3>
 
-                <h2>
-                    Scan Results
-                </h2>
-
+            <div class="table-container">
 
                 <table class="results-table">
 
@@ -168,6 +292,18 @@
 
                             <th>
                                 Status
+                            </th>
+
+                            <th>
+                                Service
+                            </th>
+
+                            <th>
+                                Risk
+                            </th>
+
+                            <th>
+                                Note
                             </th>
 
                         </tr>
@@ -193,20 +329,29 @@
                                     OPEN
                                 </span>
 
-                                {% elif result.status == "CLOSED" %}
-
-                                <span class="status status-closed">
-                                    CLOSED
-                                </span>
-
                                 {% else %}
 
-                                <span>
+                                <span class="status">
                                     {{ result.status }}
                                 </span>
 
                                 {% endif %}
 
+                            </td>
+
+
+                            <td>
+                                {{ result.service }}
+                            </td>
+
+
+                            <td>
+                                {{ result.risk_level }}
+                            </td>
+
+
+                            <td>
+                                {{ result.note }}
                             </td>
 
                         </tr>
@@ -219,51 +364,104 @@
 
             </div>
 
-            {% endif %}
+            {% else %}
 
+            
 
-            <!-- ================= ERROR MESSAGE ================= -->
+            <div class="no-results">
 
-            {% if error %}
+                <div class="no-results-icon">
+                    ✓
+                </div>
 
-            <div class="error">
+                <h3>
+                    No Open Ports Found
+                </h3>
 
-                {{ error }}
+                <p>
+                    The scan completed successfully, but no
+                    open TCP ports were detected in the
+                    selected port range.
+                </p>
 
             </div>
 
             {% endif %}
 
+        </div>
 
-            <!-- ================= INFORMATION ================= -->
+        {% endif %}
 
-            <div class="info-box">
 
-                <strong>⚠️ Responsible Use:</strong>
+       
 
-                Only scan systems and networks that you own
-                or have explicit permission to test.
-                Unauthorized port scanning may violate
-                organizational policies or applicable laws.
+        {% if scan_logs %}
+
+        <div class="activity-section">
+
+            <h2>
+                &gt; Activity Log
+            </h2>
+
+
+            <div class="activity-log">
+
+                {% for log in scan_logs %}
+
+                <div class="log-line">
+
+                    <span class="log-time">
+                        [{{ log.time }}]
+                    </span>
+
+                    <span class="log-level log-{{ log.level|lower }}">
+                        [{{ log.level }}]
+                    </span>
+
+                    <span class="log-message">
+                        {{ log.message }}
+                    </span>
+
+                </div>
+
+                {% endfor %}
 
             </div>
 
         </div>
 
+        {% endif %}
 
-        <!-- ================= FOOTER ================= -->
 
-        <footer class="footer">
+       
 
-            <p>
-                Network Port Scanner |
-                Built with <span>Python + Flask</span>
-            </p>
+        <div class="info-box">
 
-        </footer>
+            <strong>⚠️ Responsible Use:</strong>
+
+            Only scan systems and networks that you own
+            or have explicit permission to test.
+            Unauthorized port scanning may violate
+            organizational policies or applicable laws.
+
+        </div>
 
     </div>
 
+
+    
+
+    <footer class="footer">
+
+        <p>
+            Network Port Scanner |
+            Built with <span>Python + Flask</span>
+        </p>
+
+    </footer>
+
+</div>
+
 </body>
 
-</html>
+    </html>
