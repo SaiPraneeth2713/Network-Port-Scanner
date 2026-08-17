@@ -1,4 +1,9 @@
-from flask import Flask, jsonify, request
+import socket
+import time
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from flask import Flask, render_template, request
 
 from utils import resolve_target, parse_port_range, format_duration
 from logger import setup_logger
@@ -6,86 +11,211 @@ from hostinfo import get_hostname, is_host_alive, get_service_name
 import risk
 import database
 
-import socket
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
-# --------------------------------------------------
-# Flask Application
-# --------------------------------------------------
+# =========================================================
+# FLASK APPLICATION
+# =========================================================
 
 app = Flask(__name__)
 
 logger = setup_logger()
 
 
-# --------------------------------------------------
-# Port Scanner
-# --------------------------------------------------
+# =========================================================
+# WEB ACTIVITY LOG HELPER
+# =========================================================
+
+def add_scan_log(activity_log, message, level="INFO"):
+    """
+    Add a message to the web UI activity log.
+
+    The message is stored in the list and later displayed
+    inside index.html.
+    """
+
+    if activity_log is None:
+        return
+
+    activity_log.append({
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "level": level,
+        "message": message
+    })
+
+
+# =========================================================
+# PORT SCANNER
+# =========================================================
 
 def scan_port(ip, port, timeout=1.0):
-    """Attempt a TCP connection to a single port."""
+    """
+    Attempt a TCP connection to a single port.
+
+    Returns:
+        True  -> port is open
+        False -> port is closed/unavailable
+    """
 
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+
+        with socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM
+        ) as sock:
+
             sock.settimeout(timeout)
-            result = sock.connect_ex((ip, port))
+
+            result = sock.connect_ex(
+                (ip, port)
+            )
 
             return result == 0
 
     except socket.error:
+
         return False
 
 
-# --------------------------------------------------
-# Scan Workflow
-# --------------------------------------------------
+# =========================================================
+# MAIN SCAN FUNCTION
+# =========================================================
 
 def run_scan(
     target,
     port_str="1-1024",
     threads=100,
     timeout=1.0,
-    check_alive=True
+    check_alive=True,
+    activity_log=None
 ):
     """
-    Full scan workflow:
+    Full network port scanning workflow.
 
-    1. Resolve target hostname/IP
-    2. Optionally check whether host is alive
-    3. Scan ports concurrently
-    4. Assess risk of open ports
-    5. Save results to database
-    6. Log progress
-
-    Returns a summary dictionary.
+    Steps:
+        1. Resolve target hostname/IP
+        2. Optionally check whether host is alive
+        3. Parse port range
+        4. Scan ports concurrently
+        5. Assess risk of open ports
+        6. Store results in SQLite
+        7. Send activity messages to the UI
+        8. Return scan summary
     """
+
+    # =====================================================
+    # INITIALIZE DATABASE
+    # =====================================================
 
     database.init_db()
 
-    # Resolve target
-    ip = resolve_target(target)
+    # =====================================================
+    # RESOLVE TARGET
+    # =====================================================
+
+    try:
+
+        ip = resolve_target(target)
+
+    except Exception as e:
+
+        logger.error(
+            f"Unable to resolve target {target}: {e}"
+        )
+
+        add_scan_log(
+            activity_log,
+            f"Unable to resolve target {target}: {e}",
+            "ERROR"
+        )
+
+        raise ValueError(
+            f"Unable to resolve target: {target}"
+        )
 
     hostname = get_hostname(ip) or target
 
-    # Parse ports
-    ports = parse_port_range(port_str)
+    # =====================================================
+    # PARSE PORT RANGE
+    # =====================================================
 
-    logger.info(
+    try:
+
+        ports = parse_port_range(port_str)
+
+    except Exception as e:
+
+        add_scan_log(
+            activity_log,
+            f"Invalid port range: {e}",
+            "ERROR"
+        )
+
+        raise ValueError(
+            f"Invalid port range: {port_str}"
+        )
+
+    if not ports:
+
+        add_scan_log(
+            activity_log,
+            "No valid ports were provided.",
+            "ERROR"
+        )
+
+        raise ValueError(
+            "No valid ports were provided."
+        )
+
+    # =====================================================
+    # START MESSAGE
+    # =====================================================
+
+    start_message = (
         f"Starting scan on {target} ({ip}) — "
         f"{len(ports)} ports, {threads} threads"
     )
 
-    # Optional host check
-    if check_alive and not is_host_alive(ip):
+    logger.info(start_message)
 
-        logger.warning(
-            f"Host {ip} did not respond to ping — "
-            f"continuing anyway (ICMP may be blocked)"
-        )
+    add_scan_log(
+        activity_log,
+        start_message,
+        "INFO"
+    )
 
-    # Create scan record
+    # =====================================================
+    # HOST AVAILABILITY CHECK
+    # =====================================================
+
+    if check_alive:
+
+        try:
+
+            host_alive = is_host_alive(ip)
+
+        except Exception:
+
+            host_alive = True
+
+        if not host_alive:
+
+            warning_message = (
+                f"Host {ip} did not respond to ping — "
+                f"continuing anyway (ICMP may be blocked)"
+            )
+
+            logger.warning(warning_message)
+
+            add_scan_log(
+                activity_log,
+                warning_message,
+                "WARNING"
+            )
+
+    # =====================================================
+    # CREATE DATABASE SCAN RECORD
+    # =====================================================
+
     scan_id = database.create_scan(
         target,
         ip,
@@ -93,14 +223,20 @@ def run_scan(
         port_str
     )
 
+    # =====================================================
+    # SCAN PORTS
+    # =====================================================
+
     open_ports = []
 
     start = time.time()
 
-    # Concurrent port scanning
-    with ThreadPoolExecutor(max_workers=threads) as executor:
+    with ThreadPoolExecutor(
+        max_workers=threads
+    ) as executor:
 
         future_to_port = {
+
             executor.submit(
                 scan_port,
                 ip,
@@ -111,44 +247,95 @@ def run_scan(
             for port in ports
         }
 
-        for future in as_completed(future_to_port):
+        for future in as_completed(
+            future_to_port
+        ):
 
             port = future_to_port[future]
 
             try:
+
                 is_open = future.result()
 
             except Exception as e:
 
-                logger.error(
-                    f"Error scanning port {port}: {e}"
+                error_message = (
+                    f"Error scanning port "
+                    f"{port}: {e}"
+                )
+
+                logger.error(error_message)
+
+                add_scan_log(
+                    activity_log,
+                    error_message,
+                    "ERROR"
                 )
 
                 continue
 
+            # =================================================
+            # OPEN PORT
+            # =================================================
+
             if is_open:
 
-                service, risk_level, note = risk.assess_port(port)
+                service, risk_level, note = (
+                    risk.assess_port(port)
+                )
 
-                sys_service = get_service_name(port)
+                sys_service = get_service_name(
+                    port
+                )
 
                 open_ports.append(port)
 
+                # -------------------------------------------------
+                # DATABASE
+                # -------------------------------------------------
+
                 database.add_result(
+
                     scan_id,
+
                     port,
+
                     "open",
-                    service if service != "unknown" else sys_service,
+
+                    service
+                    if service != "unknown"
+                    else sys_service,
+
                     risk_level,
+
                     note
                 )
 
-                logger.info(
+                # -------------------------------------------------
+                # TERMINAL LOG
+                # -------------------------------------------------
+
+                open_message = (
                     f"Port {port} OPEN — "
                     f"{service} [{risk_level}]"
                 )
 
-    # Finish scan
+                logger.info(open_message)
+
+                # -------------------------------------------------
+                # WEB UI LOG
+                # -------------------------------------------------
+
+                add_scan_log(
+                    activity_log,
+                    open_message,
+                    "OPEN"
+                )
+
+    # =====================================================
+    # FINISH SCAN
+    # =====================================================
+
     elapsed = time.time() - start
 
     open_ports.sort()
@@ -158,154 +345,404 @@ def run_scan(
         len(open_ports)
     )
 
-    # Risk summary
-    summary = risk.summarize_risk(open_ports)
+    # =====================================================
+    # RISK SUMMARY
+    # =====================================================
+
+    summary = risk.summarize_risk(
+        open_ports
+    )
+
+    # =====================================================
+    # ADD SCAN INFORMATION
+    # =====================================================
 
     summary.update({
+
         "scan_id": scan_id,
+
         "target": target,
+
         "ip": ip,
+
         "hostname": hostname,
+
         "open_ports": open_ports,
-        "duration": format_duration(elapsed),
+
+        "duration": format_duration(
+            elapsed
+        ),
+
         "ports_scanned": len(ports),
+
     })
 
-    logger.info(
+    # =====================================================
+    # COMPLETION MESSAGE
+    # =====================================================
+
+    complete_message = (
+
         f"Scan complete: "
-        f"{len(open_ports)}/{len(ports)} ports open "
-        f"in {summary['duration']} "
-        f"(highest risk: {summary['highest_risk']})"
+
+        f"{len(open_ports)}/{len(ports)} "
+
+        f"ports open in "
+
+        f"{summary['duration']} "
+
+        f"(highest risk: "
+
+        f"{summary['highest_risk']})"
+
+    )
+
+    logger.info(complete_message)
+
+    add_scan_log(
+        activity_log,
+        complete_message,
+        "INFO"
     )
 
     return summary
 
 
-# --------------------------------------------------
-# Home Route
-# --------------------------------------------------
+# =========================================================
+# TERMINAL SUMMARY
+# =========================================================
 
-@app.route("/", methods=["GET"])
+def print_summary(summary):
+    """
+    Print scan results in the terminal.
+    """
+
+    print(
+        f"\nScan Results for "
+        f"{summary['target']} "
+        f"({summary['ip']})"
+    )
+
+    print(
+        f"Hostname: "
+        f"{summary['hostname']}"
+    )
+
+    print(
+        f"Ports scanned: "
+        f"{summary['ports_scanned']}  |  "
+        f"Duration: "
+        f"{summary['duration']}"
+    )
+
+    print(
+        f"Open ports: "
+        f"{len(summary['open_ports'])}\n"
+    )
+
+    if not summary["details"]:
+
+        print(
+            "No open ports found."
+        )
+
+        return
+
+    print(
+        f"{'PORT':<8}"
+        f"{'SERVICE':<15}"
+        f"{'RISK':<10}"
+        f"NOTE"
+    )
+
+    print("-" * 70)
+
+    for detail in summary["details"]:
+
+        print(
+            f"{detail['port']:<8}"
+            f"{detail['service']:<15}"
+            f"{detail['risk_level']:<10}"
+            f"{detail['note']}"
+        )
+
+    print(
+        f"\nHighest overall risk: "
+        f"{summary['highest_risk']}"
+    )
+
+
+# =========================================================
+# FLASK HOME ROUTE
+# =========================================================
+
+@app.route(
+    "/",
+    methods=["GET", "POST"]
+)
 def home():
 
-    return jsonify({
-        "status": "online",
-        "message": "Port Scanner API is running",
-        "usage": "POST /scan to start a scan"
-    })
+    # =====================================================
+    # DEFAULT VALUES
+    # =====================================================
 
+    results = []
 
-# --------------------------------------------------
-# Scan API
-# --------------------------------------------------
+    error = None
 
-@app.route("/scan", methods=["POST"])
-def scan():
+    scan_logs = []
 
-    try:
+    summary = None
 
-        data = request.get_json(silent=True) or {}
+    # =====================================================
+    # HANDLE SCAN FORM
+    # =====================================================
 
-        target = data.get("target")
+    if request.method == "POST":
 
-        port_str = data.get(
-            "ports",
-            "1-1024"
-        )
+        try:
 
-        threads = int(
-            data.get(
-                "threads",
-                100
+            # -------------------------------------------------
+            # GET FORM VALUES
+            # -------------------------------------------------
+
+            host = request.form.get(
+                "host",
+                ""
+            ).strip()
+
+            start_port_text = request.form.get(
+                "start_port",
+                "1"
+            ).strip()
+
+            end_port_text = request.form.get(
+                "end_port",
+                "100"
+            ).strip()
+
+            # -------------------------------------------------
+            # VALIDATE HOST
+            # -------------------------------------------------
+
+            if not host:
+
+                raise ValueError(
+                    "Please enter a target host."
+                )
+
+            # -------------------------------------------------
+            # WEB REQUEST LOG
+            # -------------------------------------------------
+
+            requested_message = (
+                f"Web scan requested: "
+                f"{host}"
             )
-        )
 
-        timeout = float(
-            data.get(
-                "timeout",
-                1.0
+            logger.info(
+                requested_message
             )
-        )
 
-        check_alive = data.get(
-            "check_alive",
-            True
-        )
+            add_scan_log(
+                scan_logs,
+                requested_message,
+                "INFO"
+            )
 
-        # Validate target
-        if not target:
+            # -------------------------------------------------
+            # CONVERT PORT VALUES
+            # -------------------------------------------------
 
-            return jsonify({
-                "success": False,
-                "error": "Target is required"
-            }), 400
+            try:
 
-        # Basic validation
-        if threads < 1:
+                start_port = int(
+                    start_port_text
+                )
 
-            return jsonify({
-                "success": False,
-                "error": "Threads must be at least 1"
-            }), 400
+                end_port = int(
+                    end_port_text
+                )
 
-        if timeout <= 0:
+            except ValueError:
 
-            return jsonify({
-                "success": False,
-                "error": "Timeout must be greater than 0"
-            }), 400
+                raise ValueError(
+                    "Start Port and End Port "
+                    "must be numbers."
+                )
 
-        logger.info(
-            f"API scan request received for {target}"
-        )
+            # -------------------------------------------------
+            # VALIDATE START PORT
+            # -------------------------------------------------
 
-        # Run scanner
-        result = run_scan(
-            target=target,
-            port_str=port_str,
-            threads=threads,
-            timeout=timeout,
-            check_alive=check_alive
-        )
+            if (
+                start_port < 1
+                or start_port > 65535
+            ):
 
-        return jsonify({
-            "success": True,
-            "result": result
-        })
+                raise ValueError(
+                    "Start Port must be between "
+                    "1 and 65535."
+                )
 
-    except Exception as e:
+            # -------------------------------------------------
+            # VALIDATE END PORT
+            # -------------------------------------------------
 
-        logger.exception(
-            "Scan API error"
-        )
+            if (
+                end_port < 1
+                or end_port > 65535
+            ):
 
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+                raise ValueError(
+                    "End Port must be between "
+                    "1 and 65535."
+                )
+
+            # -------------------------------------------------
+            # VALIDATE RANGE
+            # -------------------------------------------------
+
+            if start_port > end_port:
+
+                raise ValueError(
+                    "Start Port cannot be greater "
+                    "than End Port."
+                )
+
+            # -------------------------------------------------
+            # LIMIT WEB SCAN
+            # -------------------------------------------------
+
+            if (
+                end_port - start_port
+            ) > 5000:
+
+                raise ValueError(
+                    "For the web interface, "
+                    "please scan a maximum of "
+                    "5000 ports at a time."
+                )
+
+            # -------------------------------------------------
+            # CREATE PORT RANGE
+            # -------------------------------------------------
+
+            port_range = (
+                f"{start_port}-{end_port}"
+            )
+
+            # -------------------------------------------------
+            # RUN SCANNER
+            # -------------------------------------------------
+
+            summary = run_scan(
+
+                target=host,
+
+                port_str=port_range,
+
+                threads=100,
+
+                timeout=1.0,
+
+                check_alive=True,
+
+                activity_log=scan_logs
+
+            )
+
+            # -------------------------------------------------
+            # CONVERT OPEN PORTS FOR HTML
+            # -------------------------------------------------
+
+            for detail in summary.get(
+                "details",
+                []
+            ):
+
+                results.append({
+
+                    "port": detail["port"],
+
+                    "status": "OPEN",
+
+                    "service": detail["service"],
+
+                    "risk_level": detail["risk_level"],
+
+                    "note": detail["note"]
+
+                })
+
+            # -------------------------------------------------
+            # SUCCESS MESSAGE
+            # -------------------------------------------------
+
+            success_message = (
+                f"Web scan completed "
+                f"successfully: {host}"
+            )
+
+            logger.info(
+                success_message
+            )
+
+            add_scan_log(
+                scan_logs,
+                success_message,
+                "INFO"
+            )
+
+        except Exception as e:
+
+            # -------------------------------------------------
+            # ERROR LOG
+            # -------------------------------------------------
+
+            logger.error(
+                f"Web scan error: {e}"
+            )
+
+            add_scan_log(
+                scan_logs,
+                f"Web scan error: {e}",
+                "ERROR"
+            )
+
+            error = str(e)
+
+    # =====================================================
+    # RENDER HTML
+    # =====================================================
+
+    return render_template(
+
+        "index.html",
+
+        results=results,
+
+        error=error,
+
+        scan_logs=scan_logs,
+
+        summary=summary
+
+    )
 
 
-# --------------------------------------------------
-# Health Check
-# --------------------------------------------------
-
-@app.route("/health", methods=["GET"])
-def health():
-
-    return jsonify({
-        "status": "healthy"
-    })
-
-
-# --------------------------------------------------
-# Manual Terminal Test
-# --------------------------------------------------
+# =========================================================
+# START FLASK SERVER
+# =========================================================
 
 if __name__ == "__main__":
 
-    # Local development server
     app.run(
-        host="0.0.0.0",
+
+        host="127.0.0.1",
+
         port=5000,
-        debug=False
+
+        debug=True
+
     )
